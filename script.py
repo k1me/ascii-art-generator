@@ -1,63 +1,94 @@
-from PIL import Image, ImageDraw, ImageFont
 import math
+from PIL import Image, ImageDraw, ImageFont
 
 
 def get_max_luminance(img):
     max_value = 0
-    w, h = img.size
+    widht, height = img.size
     pixels = img.load()
-    for i in range(h):
-        for j in range(w):
-            r, g, b = pixels[j, i]
-            h = int(r / 3 + g / 3 + b / 3)
-            if h > max_value:
-                max_value = h
+
+    for y in range(height):
+        for x in range(widht):
+            r, g, b = pixels[x, y]
+            luminance = int(r / 3 + g / 3 + b / 3)
+            if luminance > max_value:
+                max_value = luminance
     return max_value
 
 
-def get_char(num):
-    return char_list[((math.floor(num * interval) - 1) % 41)]
+def get_char(luminance, interval, chars):
+    index = (math.floor(luminance * interval) - 1) % len(chars)
+    return chars[index]
 
 
-chars = " `.-':_,^=;><+rcz?LT)JfIneoZ5Y2SkP6OX0%&@"
-char_list = list(chars)
-car_len = len(char_list)
-path = input("Enter the path to the image:\n")
+def calculate_luminance(pixels, width, height):
+    luminances = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            r, g, b = pixels[x, y]
+            luminance = int(r / 3 + g / 3 + b / 3)
+            row.append((luminance, r, g, b))
+        luminances.append(row)
+    return luminances
 
-char_width = 8
-char_height = 12
-scale_factor = 1 / 8
 
-try:
-    img = Image.open(path)
-except:
-    print("No such file at the given path.")
+def main():
+    chars = " `.-':_,^=;><+rcz?LT)JfIneoZ5Y2SkP6OX0%&@"
+    char_list = list(chars)
+    char_width = 8
+    char_height = 12
+    scale_factor = 1 / 8
+    font_path = "lucon.ttf"
+    output_image_path = "output.png"
 
-fnt = ImageFont.truetype("lucon.ttf", 15)
+    image_path = input("Enter the path to the image:\n")
 
-width, height = img.size
-img = img.resize(
-    (
-        int(width * scale_factor),
-        int(height * scale_factor * (char_width / char_height)),
-    ),
-    Image.NEAREST,
-)
+    try:
+        img = Image.open(image_path)
+    except FileNotFoundError:
+        print("No such file at the given path.")
+        return
 
-width, height = img.size
-pixels = img.load()
-output_img = Image.new("RGB", (char_width * width, char_height * height), color="black")
+    try:
+        fnt = ImageFont.truetype(font_path, 15)
+    except IOError:
+        print(f"Font file {font_path} not found")
+        return
 
-draw = ImageDraw.Draw(output_img)
-interval = car_len / get_max_luminance(img)
+    width, height = img.size
+    img = img.resize(
+        (
+            int(width * scale_factor),
+            int(height * scale_factor * (char_width / char_height)),
+        ),
+        Image.BOX,
+    )
 
-for i in range(height):
-    for j in range(width):
-        r, g, b = pixels[j, i]
-        h = int(r / 3 + g / 3 + b / 3)
-        pixels[j, i] = (h, h, h)
-        draw.text(
-            (j * char_width, i * char_height), get_char(h), font=fnt, fill=(r, g, b)
-        )
+    width, height = img.size
+    pixels = img.load()
+    luminances = calculate_luminance(pixels, width, height)
 
-output_img.save("output.png")
+    output_img = Image.new(
+        "RGB", (char_width * width, char_height * height), color="black"
+    )
+    draw = ImageDraw.Draw(output_img)
+    interval = len(char_list) / get_max_luminance(img)
+
+    for y in range(height):
+        for x in range(width):
+            luminance, r, g, b = luminances[y][x]
+            char = get_char(luminance, interval, chars)
+            draw.text(
+                (x * char_width, y * char_height),
+                get_char(luminance, interval, chars),
+                font=fnt,
+                fill=(r, g, b),
+            )
+
+    output_img.save("output.png")
+    print(f"ASCII art image saved as {output_image_path}")
+
+
+if __name__ == "__main__":
+    main()
