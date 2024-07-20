@@ -1,36 +1,19 @@
-import math
+import math, time
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 
-def get_max_luminance(img):
-    max_value = 0
-    widht, height = img.size
-    pixels = img.load()
-
-    for y in range(height):
-        for x in range(widht):
-            r, g, b = pixels[x, y]
-            luminance = int(r / 3 + g / 3 + b / 3)
-            if luminance > max_value:
-                max_value = luminance
-    return max_value
+def get_luminance(img, case=False):
+    pixels = np.array(img)
+    luminance = (
+        pixels[:, :, 0] * 0.299 + pixels[:, :, 1] * 0.587 + pixels[:, :, 2] * 0.114
+    )
+    return np.max(luminance) if case else luminance
 
 
 def get_char(luminance, interval, chars):
     index = (math.floor(luminance * interval) - 1) % len(chars)
     return chars[index]
-
-
-def calculate_luminance(pixels, width, height):
-    luminances = []
-    for y in range(height):
-        row = []
-        for x in range(width):
-            r, g, b = pixels[x, y]
-            luminance = int(r / 3 + g / 3 + b / 3)
-            row.append((luminance, r, g, b))
-        luminances.append(row)
-    return luminances
 
 
 def main():
@@ -41,7 +24,6 @@ def main():
     scale_factor = 1 / 8
     font_path = "lucon.ttf"
     output_image_path = "output.png"
-
     image_path = input("Enter the path to the image:\n")
 
     try:
@@ -65,26 +47,23 @@ def main():
         Image.BOX,
     )
 
-    width, height = img.size
-    pixels = img.load()
-    luminances = calculate_luminance(pixels, width, height)
+    pixels = np.array(img)
+    luminance = get_luminance(img)
 
     output_img = Image.new(
-        "RGB", (char_width * width, char_height * height), color="black"
+        "RGB",
+        (char_width * pixels.shape[1], char_height * pixels.shape[0]),
+        color="black",
     )
     draw = ImageDraw.Draw(output_img)
-    interval = len(char_list) / get_max_luminance(img)
+    interval = len(char_list) / get_luminance(img, case=True)
 
-    for y in range(height):
-        for x in range(width):
-            luminance, r, g, b = luminances[y][x]
-            char = get_char(luminance, interval, chars)
-            draw.text(
-                (x * char_width, y * char_height),
-                get_char(luminance, interval, chars),
-                font=fnt,
-                fill=(r, g, b),
-            )
+    for y in range(pixels.shape[0]):
+        for x in range(pixels.shape[1]):
+            lum = luminance[y, x]
+            r, g, b = pixels[y, x]
+            char = get_char(lum, interval, chars)
+            draw.text((x * char_width, y * char_height), char, font=fnt, fill=(r, g, b))
 
     output_img.save("output.png")
     print(f"ASCII art image saved as {output_image_path}")
